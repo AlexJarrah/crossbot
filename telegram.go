@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
 	"strings"
 
 	"github.com/go-telegram/bot"
@@ -98,6 +100,10 @@ func (c *Config) Telegram(cmds *[]*Command) error {
 		return fmt.Errorf("failed to create new bot instance: %w", err)
 	}
 
+	if err := c.RegisterTelegram(b, cmds); err != nil {
+		return fmt.Errorf("failed to register Telegram commands: %w", err)
+	}
+
 	for _, cmd := range *cmds {
 		if cmd.Telegram.TextMiddleware != nil {
 			continue
@@ -128,11 +134,13 @@ func (c *Config) Telegram(cmds *[]*Command) error {
 				}
 			}
 
-			b.RegisterHandler(bot.HandlerTypeMessageText, "/"+nameCpy, bot.MatchTypeContains, fn)
+			b.RegisterHandler(bot.HandlerTypeMessageText, "/"+nameCpy, bot.MatchTypePrefix, fn)
 		}
 	}
 
-	b.Start(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	b.Start(ctx)
 	return nil
 }
 
@@ -159,4 +167,21 @@ func getUserFromUpdate(update *models.Update) string {
 	} else {
 		return from.Username
 	}
+}
+
+// RegisterTelegram registers all provided commands with Telegram
+func (c *Config) RegisterTelegram(b *bot.Bot, cmds *[]*Command) error {
+	var commands []models.BotCommand
+	for _, cmd := range *cmds {
+		commands = append(commands, cmd.Telegram.BotComand)
+	}
+
+	ok, err := b.SetMyCommands(context.Background(), &bot.SetMyCommandsParams{
+		Commands: commands,
+	})
+	if err != nil || !ok {
+		return fmt.Errorf("failed to set commands: %w", err)
+	}
+
+	return nil
 }

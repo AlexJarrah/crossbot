@@ -3,6 +3,7 @@ package crossbot
 import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
 )
 
 type (
@@ -44,6 +45,9 @@ type (
 	TelegramCommand struct {
 		// Function that gets called on every chat message
 		TextMiddleware func(next bot.HandlerFunc) bot.HandlerFunc
+
+		// Telegram slash command
+		BotComand models.BotCommand
 	}
 
 	// DiscordCommand is a command's Discord configuration
