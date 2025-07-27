@@ -122,6 +122,7 @@ func (c *Config) Telegram(cmds *[]*Command) error {
 				_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 					ChatID: update.Message.Chat.ID,
 					Text:   text,
+					// ParseMode: "MarkdownV2",
 					ReplyParameters: &models.ReplyParameters{
 						MessageID:                update.Message.ID,
 						ChatID:                   update.Message.Chat.ID,
@@ -173,7 +174,14 @@ func getUserFromUpdate(update *models.Update) string {
 func (c *Config) RegisterTelegram(b *bot.Bot, cmds *[]*Command) error {
 	var commands []models.BotCommand
 	for _, cmd := range *cmds {
-		commands = append(commands, cmd.Telegram.BotComand)
+		bc := cmd.Telegram.BotComand
+		if len(bc.Command) > 0 {
+			commands = append(commands, bc)
+		}
+	}
+
+	if len(commands) == 0 {
+		return nil
 	}
 
 	ok, err := b.SetMyCommands(context.Background(), &bot.SetMyCommandsParams{

@@ -8,16 +8,24 @@ import (
 func (c *Config) parseFields(message string, cmd TextCommand) map[string]string {
 	result := make(map[string]string)
 
-	// Handle empty delimiter case
-	if cmd.SplitFieldsOn == nil || *cmd.SplitFieldsOn == "" {
+	var delimiter string
+	if cmd.SplitFieldsOn == nil {
+		// Fallback to space
+		delimiter = " "
+	} else {
+		delimiter = *cmd.SplitFieldsOn
+	}
+
+	// If delimiter is empty, return the entire message under an empty key
+	if delimiter == "" {
 		return map[string]string{"": message}
 	}
 
-	// Track the current position in argsOrder
-	var argIndex int
+	// Split message into parts using the delimiter
+	parts := strings.Split(message, delimiter)
 
-	// Split message into parts using the specified delimiter
-	parts := strings.Split(message, *cmd.SplitFieldsOn)
+	// Track the current position in Arguments
+	var argIndex int
 
 	// Iterate through all parts of the split message
 	for i := 0; i < len(parts); i++ {
@@ -29,7 +37,6 @@ func (c *Config) parseFields(message string, cmd TextCommand) map[string]string 
 
 		// Handle quoted strings that might span multiple parts
 		if strings.HasPrefix(part, `"`) {
-			// Initialize string builder for efficient concatenation
 			var quotedValue strings.Builder
 			quotedValue.WriteString(part[1:])
 
@@ -37,7 +44,7 @@ func (c *Config) parseFields(message string, cmd TextCommand) map[string]string 
 			for !strings.HasSuffix(part, `"`) && i+1 < len(parts) {
 				i++
 				part = parts[i]
-				quotedValue.WriteString(*cmd.SplitFieldsOn + part)
+				quotedValue.WriteString(delimiter + part)
 			}
 
 			// Extract the final value and remove trailing quote
@@ -46,7 +53,7 @@ func (c *Config) parseFields(message string, cmd TextCommand) map[string]string 
 				value = value[:len(value)-1]
 			}
 
-			// Store as positional argument if we haven't exhausted argsOrder
+			// Store as positional argument if we haven't exhausted Arguments
 			if argIndex < len(cmd.Arguments) {
 				result[cmd.Arguments[argIndex]] = value
 				argIndex++
@@ -54,22 +61,20 @@ func (c *Config) parseFields(message string, cmd TextCommand) map[string]string 
 			continue
 		}
 
-		// Handle flags (--flag) and key-value pairs (--key=value)
-		if strings.HasPrefix(part, "--") || strings.HasPrefix(part, "-") {
+		// Handle flags and key-value pairs (--key=value)
+		if strings.HasPrefix(part, "--") || strings.HasPrefix(part, "-") || strings.HasPrefix(part, "—") {
 			// Remove leading dashes
-			part = strings.TrimLeft(part, "-")
+			flag := strings.TrimLeft(part, "-")
+			flag = strings.TrimLeft(flag, "—")
 
-			// Split on first equals sign if present
-			if keyValue := strings.SplitN(part, "=", 2); len(keyValue) == 2 {
-				value := keyValue[1]
-				// Remove surrounding quotes if present
-				if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
-					value = value[1 : len(value)-1]
+			// Check if the flag (with or without value) matches an option
+			for _, opt := range cmd.Options {
+				// Check if flag starts with the option name
+				if flag == opt || strings.HasPrefix(flag, opt+"=") {
+					// Store the full flag (without dashes) as the key with empty value
+					result[flag] = ""
+					break
 				}
-				result[keyValue[0]] = value
-			} else {
-				// Handle flag without value
-				result[part] = ""
 			}
 			continue
 		}
