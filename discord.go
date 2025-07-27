@@ -50,7 +50,7 @@ func (c *Config) Discord(cmds *[]*Command) (cancelFunc func() error, err error) 
 	return dg.Close, nil
 }
 
-// Registers all provided commands with Discord
+// RegisterDiscord registers all provided commands with Discord
 func (c *Config) RegisterDiscord(s *discordgo.Session, cmds *[]*Command) error {
 	commandHandlers := make(map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate))
 

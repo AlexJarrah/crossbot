@@ -2,6 +2,7 @@ package crossbot
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -31,6 +32,8 @@ type (
 	}
 )
 
+// Validate ensures that the config is not missing any necessary fields.
+// It also populates unspecified fields with default values.
 func (c *Config) Validate() error {
 	switch {
 	case c == nil:
@@ -42,6 +45,15 @@ func (c *Config) Validate() error {
 	case c.TelegramConfig == nil && c.DiscordConfig == nil:
 		return errors.New("no platform configuration specified")
 	default:
-		return nil
 	}
+
+	if c.CacheDirectory == "" {
+		dir, err := c.DefaultCacheDirectory()
+		if err != nil {
+			return fmt.Errorf("failed to populate missing field 'CacheDirectory': %w", err)
+		}
+		c.CacheDirectory = dir
+	}
+
+	return nil
 }

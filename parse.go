@@ -1,52 +1,83 @@
 package crossbot
 
 import (
-	"regexp"
 	"strings"
 )
 
-func parseFields(message string, argsOrder []string) map[string]string {
+// parseFields parses a string message into a map based on positional arguments and flags
+func (c *Config) parseFields(message string, cmd TextCommand) map[string]string {
 	result := make(map[string]string)
-	argCount := 0
 
-	// Split message on each new word, quoted phrase, or key-value pair
-	re := regexp.MustCompile(`--?[^=\s]+(?:=(?:"(?:\\.|[^"\\])*"|[^"\s]+))?|"(?:\\.|[^"\\])*"|\S+`)
-	fields := re.FindAllString(message, -1)[1:]
+	// Handle empty delimiter case
+	if cmd.SplitFieldsOn == nil || *cmd.SplitFieldsOn == "" {
+		return map[string]string{"": message}
+	}
 
-	for _, field := range fields {
-		if strings.HasPrefix(field, "--") || strings.HasPrefix(field, "-") {
-			field = strings.TrimLeft(field, "-")
-			if strings.Contains(field, "=") {
-				parts := strings.SplitN(field, "=", 2)
-				key := parts[0]
-				value := parts[1]
+	// Track the current position in argsOrder
+	var argIndex int
 
+	// Split message into parts using the specified delimiter
+	parts := strings.Split(message, *cmd.SplitFieldsOn)
+
+	// Iterate through all parts of the split message
+	for i := 0; i < len(parts); i++ {
+		// Clean up whitespace and skip empty parts
+		part := strings.TrimSpace(parts[i])
+		if part == "" {
+			continue
+		}
+
+		// Handle quoted strings that might span multiple parts
+		if strings.HasPrefix(part, `"`) {
+			// Initialize string builder for efficient concatenation
+			var quotedValue strings.Builder
+			quotedValue.WriteString(part[1:])
+
+			// Continue reading parts until we find the closing quote
+			for !strings.HasSuffix(part, `"`) && i+1 < len(parts) {
+				i++
+				part = parts[i]
+				quotedValue.WriteString(*cmd.SplitFieldsOn + part)
+			}
+
+			// Extract the final value and remove trailing quote
+			value := quotedValue.String()
+			if strings.HasSuffix(value, `"`) {
+				value = value[:len(value)-1]
+			}
+
+			// Store as positional argument if we haven't exhausted argsOrder
+			if argIndex < len(cmd.Arguments) {
+				result[cmd.Arguments[argIndex]] = value
+				argIndex++
+			}
+			continue
+		}
+
+		// Handle flags (--flag) and key-value pairs (--key=value)
+		if strings.HasPrefix(part, "--") || strings.HasPrefix(part, "-") {
+			// Remove leading dashes
+			part = strings.TrimLeft(part, "-")
+
+			// Split on first equals sign if present
+			if keyValue := strings.SplitN(part, "=", 2); len(keyValue) == 2 {
+				value := keyValue[1]
 				// Remove surrounding quotes if present
 				if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
 					value = value[1 : len(value)-1]
 				}
-
-				// Unescape any escaped quotes within the value
-				value = strings.ReplaceAll(value, `\"`, `"`)
-
-				result[key] = value
+				result[keyValue[0]] = value
 			} else {
-				result[field] = ""
+				// Handle flag without value
+				result[part] = ""
 			}
-		} else {
-			// Remove surrounding quotes if present
-			if strings.HasPrefix(field, `"`) && strings.HasSuffix(field, `"`) {
-				field = field[1 : len(field)-1]
-			}
+			continue
+		}
 
-			// Unescape any escaped quotes within the field
-			field = strings.ReplaceAll(field, `\"`, `"`)
-
-			if argCount < len(argsOrder) {
-				key := argsOrder[argCount]
-				result[key] = field
-				argCount++
-			}
+		// Handle regular positional arguments
+		if argIndex < len(cmd.Arguments) {
+			result[cmd.Arguments[argIndex]] = part
+			argIndex++
 		}
 	}
 

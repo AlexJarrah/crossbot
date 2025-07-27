@@ -13,14 +13,6 @@ func (c *Config) Start(cmds *[]*Command) error {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	if c.CacheDirectory == "" {
-		dir, err := c.DefaultCacheDirectory()
-		if err != nil {
-			return fmt.Errorf("failed to populate missing field 'CacheDirectory': %w", err)
-		}
-		c.CacheDirectory = dir
-	}
-
 	go func() {
 		if err := c.Telegram(cmds); err != nil {
 			log.Println("Telegram initialization error:", err)

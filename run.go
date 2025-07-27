@@ -7,17 +7,22 @@ import (
 	"github.com/go-telegram/bot/models"
 )
 
-// Validate & run specified command
-func (c Command) Run(user, message, command string, platform Platform) (text string, markup models.ReplyMarkup) {
-	fields := parseFields(message, c.Text.Arguments)
+// Run validates & runs the specified command
+func (c *Config) Run(cmd *Command, user, msg, command string, platform Platform) (text string, markup models.ReplyMarkup) {
+	fields := c.parseFields(msg, cmd.Text)
 	fields["user"] = user
 	fields["platform"] = fmt.Sprint(platform)
 
-	for _, a := range c.Text.Arguments {
+	for _, a := range cmd.Text.Arguments {
 		if _, ok := fields[a]; !ok {
-			return fmt.Sprintf("Invalid usage!\n\nex: /%s %s\n\noptionally: %s", command, strings.Join(c.Text.Arguments, " "), strings.Join(c.Text.Options, ", ")), nil
+			msg := fmt.Sprintf("Invalid usage!\n\nex: /%s %s\n\noptionally: %s",
+				command,
+				strings.Join(cmd.Text.Arguments, " "),
+				strings.Join(cmd.Text.Options, ", "),
+			)
+			return msg, nil
 		}
 	}
 
-	return c.Handler(fields).Telegram()
+	return cmd.Handler(fields).Telegram()
 }

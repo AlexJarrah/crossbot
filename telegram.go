@@ -103,7 +103,7 @@ func (c *Config) Telegram(cmds *[]*Command) error {
 			continue
 		}
 
-		for _, name := range cmd.Text.Names {
+		for _, name := range cmd.Text.Aliases {
 			cmdCpy, nameCpy := cmd, name
 
 			fn := func(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -112,7 +112,7 @@ func (c *Config) Telegram(cmds *[]*Command) error {
 				txt = strings.TrimSpace(txt)
 
 				user := getUserFromUpdate(update)
-				text, markup := cmdCpy.Run(user, txt, nameCpy, PlatformTelegram)
+				text, markup := c.Run(cmdCpy, user, txt, nameCpy, PlatformTelegram)
 				_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 					ChatID: update.Message.Chat.ID,
 					Text:   text,
