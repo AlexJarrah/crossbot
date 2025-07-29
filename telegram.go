@@ -181,6 +181,7 @@ func (c *Config) RegisterTelegram(b *bot.Bot, cmds *[]*Command) error {
 	}
 
 	if len(commands) == 0 {
+		b.DeleteMyCommands(context.Background(), &bot.DeleteMyCommandsParams{})
 		return nil
 	}
 
